@@ -1,30 +1,33 @@
-import axios from 'axios';
-import Storage from '../../utils/storage';
+import api from '../../utils/api'; 
+import Storage from '../../utils/storage'; 
 
 export default class AuthPresenter {
   constructor(view) {
     this.view = view;
-    this.apiUrl = 'http://localhost:3000/api/auth';
+
   }
 
   async login(username, password) {
     try {
-      // Panggil Backend Login
-      const response = await axios.post(`${this.apiUrl}/login`, {
-        identity: username, // Backend menggunakan 'identity' (username atau email)
+      const response = await api.post('/auth/login', {
+        identity: username,
         password
       });
 
+      // Ambil data dari response
+      // Struktur Backend: { error: false, data: { token, user } }
       const { token, user } = response.data.data;
 
-      // Simpan Token & User ke LocalStorage
+      // Simpan Token & User
       Storage.setToken(token);
       Storage.setUser(user);
 
-      // Beri tahu View bahwa login sukses
+      // Beritahu View Login Sukses
       this.view.onLoginSuccess(user);
     } catch (error) {
-      const message = error.response?.data?.message || 'Terjadi kesalahan koneksi';
+      // Handle Error
+      console.error("AuthPresenter Error:", error);
+      const message = error.response?.data?.message || 'Login gagal. Cek koneksi internet.';
       this.view.onLoginError(message);
     }
   }
