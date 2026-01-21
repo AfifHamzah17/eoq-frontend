@@ -1,33 +1,39 @@
-import axios from 'axios';
-import Storage from './storage';
+import api from '../../utils/api'; 
+import Storage from '../../utils/storage'; 
 
-const apiClient = axios.create({
-  baseURL: 'https://eoq-backend-1034091508339.asia-southeast1.run.app/api'
-});
+export default class AuthPresenter {
+  constructor(view) {
+    this.view = view;
 
-// Interceptor Request: Pasang Token otomatis
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = Storage.getToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Interceptor Response: Handle Error 401 (Unauthorized)
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      Storage.clearUser();
-      // Redirect ke login jika token mati
-      window.location.href = '/auth'; 
-    }
-    return Promise.reject(error);
   }
-);
 
-export default apiClient;
+  async login(username, password) {
+    try {
+      const response = await api.post('/auth/login', {
+        identity: username,
+        password
+      });
+
+      // Ambil data dari response
+      // Struktur Backend: { error: false, data: { token, user } }
+      const { token, user } = response.data.data;
+
+      // Simpan Token & User
+      Storage.setToken(token);
+      Storage.setUser(user);
+
+      // Beritahu View Login Sukses
+      this.view.onLoginSuccess(user);
+    } catch (error) {
+      // Handle Error
+      console.error("AuthPresenter Error:", error);
+      const message = error.response?.data?.message || 'Login gagal. Cek koneksi internet.';
+      this.view.onLoginError(message);
+    }
+  }
+
+  logout() {
+    Storage.clearUser();
+    this.view.onLogoutSuccess();
+  }
+}
