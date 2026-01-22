@@ -286,34 +286,57 @@ import { showToast } from '../../utils/toastify';
 import ExcelJS from 'exceljs';
 
 // --- STATE ---
-const items = ref([]); const isLoading = ref(false); const searchQuery = ref('');
-const sortKey = ref('createdAt'); const sortAsc = ref(false);
-const isUploadModalOpen = ref(false); const transactionType = ref('in'); const uploadTab = ref('single');
-const uploadForm = reactive({ date: new Date().toISOString().split('T')[0], shopName: '', itemName: '', qty: 0 });
-const excelFile = ref(null); // Ganti dari csvFile
+const items = ref([]); 
+const isLoading = ref(false); 
+const searchQuery = ref('');
+const sortKey = ref('createdAt'); 
+const sortAsc = ref(false);
+const isUploadModalOpen = ref(false); 
+const transactionType = ref('in'); 
+const uploadTab = ref('single');
+const uploadForm = reactive({ 
+  date: new Date().toISOString().split('T')[0], 
+  shopName: '', 
+  itemName: '', 
+  qty: 0 
+});
+const excelFile = ref(null);
 const isDragging = ref(false); 
-const parsedExcelData = ref([]); // Ganti dari parsedCsvData
+const parsedExcelData = ref([]);
 
-// --- STATE PROGRESS UPLOAD BARU ---
+// --- STATE PROGRESS UPLOAD ---
 const isUploading = ref(false);
 const uploadTotal = ref(0);
 const uploadCount = ref(0);
 const uploadProgress = ref(0);
 
 // --- HISTORY STATE ---
-const isHistoryOpen = ref(false); const historyData = ref([]);
-const historyItemName = ref(''); const historyShopName = ref(''); const activeItemCode = ref('');
+const isHistoryOpen = ref(false); 
+const historyData = ref([]);
+const historyItemName = ref(''); 
+const historyShopName = ref(''); 
+const activeItemCode = ref('');
 const isEditHistoryOpen = ref(false);
-const editForm = reactive({ id: '', type: '', date: '', shopName: '', qty: 0 });
+const editForm = reactive({ 
+  id: '', 
+  type: '', 
+  date: '', 
+  shopName: '', 
+  qty: 0 
+});
 
 // --- PRESENTER ---
 const presenter = new InventoryPresenter({
-  setItems: (data) => items.value = data, setHistoryData: (data) => historyData.value = data,
-  showLoading: (state) => isLoading.value = state, onCreateSuccess: (msg) => showToast(msg, 'success'),
-  onUpdateSuccess: (msg) => showToast(msg, 'success'), onDeleteSuccess: (msg) => showToast(msg, 'success'),
-  showError: (msg) => showToast(msg, 'error'), closeForm: () => {},
+  setItems: (data) => items.value = data, 
+  setHistoryData: (data) => historyData.value = data,
+  showLoading: (state) => isLoading.value = state, 
+  onCreateSuccess: (msg) => showToast(msg, 'success'),
+  onUpdateSuccess: (msg) => showToast(msg, 'success'), 
+  onDeleteSuccess: (msg) => showToast(msg, 'success'),
+  showError: (msg) => showToast(msg, 'error'), 
+  closeForm: () => {},
   
-  // --- TAMBAHKAN FUNGSI PROGRESS ---
+  // --- FUNGSI PROGRESS ---
   showUploadProgress: (state) => isUploading.value = state,
   setUploadTotal: (total) => uploadTotal.value = total,
   setUploadCount: (count) => uploadCount.value = count,
@@ -323,36 +346,53 @@ const presenter = new InventoryPresenter({
 // --- HELPER ---
 const formatDateDisplay = (dateString) => {
   if (!dateString) return '';
-  if (dateString.includes('-')) { const [y,m,d] = dateString.split('-'); return `${d}/${m}/${y}`; }
+  if (dateString.includes('-')) { 
+    const [y,m,d] = dateString.split('-'); 
+    return `${d}/${m}/${y}`; 
+  }
   return dateString;
 };
 
 // --- SORTING ---
-const sortBy = (k) => { sortKey.value === k ? sortAsc.value = !sortAsc.value : (sortKey.value=k, sortAsc.value=true); };
+const sortBy = (k) => { 
+  sortKey.value === k ? sortAsc.value = !sortAsc.value : (sortKey.value=k, sortAsc.value=true); 
+};
+
 const filteredItems = computed(() => {
   let t = [...items.value];
-  if(searchQuery.value) { const l = searchQuery.value.toLowerCase(); t = t.filter(i => i.name.toLowerCase().includes(l) || i.code.toLowerCase().includes(l) || (i.shopName && i.shopName.toLowerCase().includes(l))); }
-  t.sort((a,b) => { let A=a[sortKey.value], B=b[sortKey.value]; if (typeof A==='string') A=A.toLowerCase(); if (typeof B==='string') B=B.toLowerCase(); if (A<B) return sortAsc.value?-1:1; if (A>B) return sortAsc.value?1:-1; return 0; });
+  if(searchQuery.value) { 
+    const l = searchQuery.value.toLowerCase(); 
+    t = t.filter(i => 
+      i.name.toLowerCase().includes(l) || 
+      i.code.toLowerCase().includes(l) || 
+      (i.shopName && i.shopName.toLowerCase().includes(l))
+    ); 
+  }
+  t.sort((a,b) => { 
+    let A=a[sortKey.value], B=b[sortKey.value]; 
+    if (typeof A==='string') A=A.toLowerCase(); 
+    if (typeof B==='string') B=B.toLowerCase(); 
+    if (A<B) return sortAsc.value?-1:1; 
+    if (A>B) return sortAsc.value?1:-1; 
+    return 0; 
+  });
   return t;
 });
 
-// --- EXPORT EXCEL (FIX VITE & DATE ERROR) ---
+// --- EXPORT EXCEL ---
 const exportToExcel = async () => {
   if (filteredItems.value.length === 0) return showToast('Data kosong', 'error');
 
-  // 1. Fetch Data Report (Master + Total Masuk/Keluar) dari Backend
-  // Kita gunakan Loading UI sebentar
   const loadingToast = showToast('Sedang menyiapkan data laporan...', 'info');
   
   let fullReport = [];
   try {
     fullReport = await presenter.getInventoryReport();
   } catch (e) {
-    return; // Error sudah ditangkap di presenter/toast
+    return; // Error sudah ditangani di presenter/toast
   }
 
-  // 2. Buat Map untuk cepat lookup data "Total Masuk/Keluar"
-  // key = code, value = { totalIn, totalOut }
+  // Buat Map untuk lookup data "Total Masuk/Keluar"
   const reportMap = new Map();
   fullReport.forEach(r => {
     reportMap.set(r.code, {
@@ -361,7 +401,7 @@ const exportToExcel = async () => {
     });
   });
 
-  // 3. Setup Workbook & Styles
+  // Setup Workbook & Styles
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Laporan Stok');
 
@@ -394,8 +434,7 @@ const exportToExcel = async () => {
 
   const today = new Date();
 
-  // 4. Loop Data yang Ter-Filter di Layar (filteredItems)
-  // Tapi ambil "Total Masuk/Keluar" dari Map (fullReport)
+  // Loop Data yang Ter-Filter di Layar
   filteredItems.value.forEach((item) => {
     // Logic Tanggal
     let dateStr = today.toISOString().split('T')[0];
@@ -412,8 +451,8 @@ const exportToExcel = async () => {
       date: dateStr,
       name: item.name,
       shopName: item.shopName || '-',
-      in: totals.totalIn, // --- REAL DATA DARI DATABASE ---
-      out: totals.totalOut, // --- REAL DATA DARI DATABASE ---
+      in: totals.totalIn,
+      out: totals.totalOut,
       stock: item.stock
     });
 
@@ -427,7 +466,7 @@ const exportToExcel = async () => {
     });
   });
 
-  // 5. Write File
+  // Write File
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = window.URL.createObjectURL(blob);
@@ -445,13 +484,18 @@ const exportToExcel = async () => {
 const openUploadModal = (type) => {
   transactionType.value = type; 
   uploadForm.date = new Date().toISOString().split('T')[0]; 
-  uploadForm.shopName=''; uploadForm.itemName=''; uploadForm.qty=0; 
+  uploadForm.shopName=''; 
+  uploadForm.itemName=''; 
+  uploadForm.qty=0; 
   excelFile.value = null; // Reset file
   parsedExcelData.value = []; // Reset data
   uploadTab.value = 'single'; // Reset tab
   isUploadModalOpen.value = true;
 };
-const closeUploadModal = () => { isUploadModalOpen.value = false; };
+
+const closeUploadModal = () => { 
+  isUploadModalOpen.value = false; 
+};
 
 // --- SINGLE UPLOAD ---
 const handleSingleUpload = () => { 
@@ -459,69 +503,80 @@ const handleSingleUpload = () => {
   closeUploadModal(); 
 };
 
-// --- EXCEL PROCESSING (LOGIKA PINTAR DIPERTAHANKAN) ---
+// --- EXCEL PROCESSING DENGAN EXCELJS ---
 const handleFileDrop = (e) => { 
   isDragging.value = false; 
   const files = e.dataTransfer.files; 
   if (files.length) processFile(files[0]); 
 };
+
 const handleFileSelect = (e) => { 
   const files = e.target.files; 
   if (files.length) processFile(files[0]); 
 };
 
-const processFile = (file) => {
+const processFile = async (file) => {
   const validExts = [".xlsx", ".xls"];
   const fileExt = file.name.substring(file.name.lastIndexOf('.'));
   if (!validExts.includes(fileExt)) {
     return showToast('Format harus Excel (.xlsx)', 'error');
   }
+  
   excelFile.value = file;
   
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const data = new Uint8Array(e.target.result);
-    const workbook = XLSX.read(data, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+  try {
+    // Baca file dengan ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    const arrayBuffer = await file.arrayBuffer();
+    await workbook.xlsx.load(arrayBuffer);
     
-    // Parse ke JSON raw dengan header: "A", "B", "C" (Otomatis skip header jika diatur)
-    // Di sini kita pakai header: "A" agar kita bisa pakai logika Kolom A / Kolom B
-    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "", header: "A" });
+    // Ambil worksheet pertama
+    const worksheet = workbook.getWorksheet(1);
     
-    // Skip header row (Row 1 biasanya judul)
-    // Kita cek jika row pertama isinya text murni string header
-    if (jsonData.length > 0) {
-      // Jika user upload file tanpa header, jangan slice. 
-      // Tapi untuk keamanan, kita anggap row 0 adalah header.
-      jsonData.shift(); 
-    }
-    
-    parsedExcelData.value = jsonData.map(row => {
-      // Row sekarang object: { A: ..., B: ..., C: ... }
-      const firstCol = row.A;
+    // Konversi ke array
+    const data = [];
+    worksheet.eachRow((row, rowNumber) => {
+      // Skip header row (baris pertama)
+      if (rowNumber === 1) return;
       
-      // Cek Format Tanggal (YYYY-MM-DD)
-      // Jika firstCol mengandung '-' dan awalan angka
-      const isDateFormat = firstCol && typeof firstCol === 'string' && firstCol.includes('-') && !isNaN(firstCol.split('-')[0]);
+      // Ambil nilai dari setiap sel
+      const values = row.values;
+      
+      // Hapus elemen pertama (indeks 0) karena ExcelJS menambahkan elemen kosong di awal
+      values.shift();
+      
+      // Tambahkan ke data array
+      data.push(values);
+    });
+    
+    // Proses data
+    parsedExcelData.value = data.map(row => {
+      // Cek apakah format dengan kode atau tanpa kode
+      // Format dengan kode: [code, date, shopName, itemName, qty]
+      // Format tanpa kode: [date, shopName, itemName, qty]
       
       let date, shopName, itemName, qty;
-
+      
+      // Cek apakah kolom pertama adalah tanggal (format YYYY-MM-DD)
+      const firstCol = row[0];
+      const isDateFormat = firstCol && typeof firstCol === 'string' && 
+                          firstCol.includes('-') && 
+                          !isNaN(firstCol.split('-')[0]);
+      
       if (isDateFormat) {
-        // CASE 1: TIDAK ADA KOLOM KODE (Format: date, shopName, itemName, qty)
-        date = row.B; // Row A=Date, B=Shop, C=Name, D=Qty
-        shopName = row.C;
-        itemName = row.D;
-        qty = row.E;
+        // Format tanpa kode: [date, shopName, itemName, qty]
+        date = row[0];
+        shopName = row[1];
+        itemName = row[2];
+        qty = row[3];
       } else {
-        // CASE 2: ADA KOLOM KODE DI DEPAN (Format: code, date, shopName, itemName, qty)
-        // Lewatkan Row A (Kode)
-        date = row.B;
-        shopName = row.C;
-        itemName = row.D;
-        qty = row.E;
+        // Format dengan kode: [code, date, shopName, itemName, qty]
+        date = row[1];
+        shopName = row[2];
+        itemName = row[3];
+        qty = row[4];
       }
-
+      
       return {
         date: date,
         shopName: shopName,
@@ -529,8 +584,11 @@ const processFile = (file) => {
         qty: parseInt(qty) || 0
       };
     });
-  };
-  reader.readAsArrayBuffer(file);
+    
+  } catch (error) {
+    console.error('Error processing Excel file:', error);
+    showToast('Gagal memproses file Excel', 'error');
+  }
 };
 
 const handleExcelUpload = () => { 
@@ -547,21 +605,34 @@ const openHistory = (item) => {
   presenter.getHistory(item.code); 
   isHistoryOpen.value = true; 
 };
-const closeHistory = () => { isHistoryOpen.value = false; };
+
+const closeHistory = () => { 
+  isHistoryOpen.value = false; 
+};
 
 // --- EDIT ---
 const openEditHistory = (log) => { 
-  editForm.id = log.id; editForm.type = log.type; editForm.date = log.date; editForm.shopName = log.shopName; editForm.qty = log.qty; 
+  editForm.id = log.id; 
+  editForm.type = log.type; 
+  editForm.date = log.date; 
+  editForm.shopName = log.shopName; 
+  editForm.qty = log.qty; 
   isEditHistoryOpen.value = true; 
 };
-const closeEditHistory = () => { isEditHistoryOpen.value = false; };
+
+const closeEditHistory = () => { 
+  isEditHistoryOpen.value = false; 
+};
+
 const saveEditHistory = () => { 
   presenter.editTransaction(editForm.id, editForm); 
   presenter.getHistory(activeItemCode.value); 
   closeEditHistory(); 
 };
 
-onMounted(() => { presenter.loadItems(); });
+onMounted(() => { 
+  presenter.loadItems(); 
+});
 </script>
 
 <style scoped>

@@ -319,7 +319,7 @@ const presenter = new ShippingPresenter({
   showError: (msg) => showToast(msg, 'error'),
   closeForm: () => {},
 
-  // --- TAMBAHKAN FUNGSI INI UNTUK PROGRESS ---
+  // --- FUNGSI PROGRESS ---
   showUploadProgress: (state) => isUploading.value = state,
   setUploadTotal: (total) => uploadTotal.value = total,
   setUploadCount: (count) => uploadCount.value = count,
@@ -496,7 +496,7 @@ const exportToExcel = async () => {
     row.eachCell((cell) => {
       cell.style = borderStyle;
       
-      // --- UPDATE: FORMAT RUPIAH DI KOLOM D (Index 4) ---
+      // Format Rupiah di Kolom D (Index 4)
       if (cell.column === 4) {
         cell.numFmt = '"Rp"#,##0'; // Format: Rp 10.000 (otomatis)
       }
@@ -515,8 +515,8 @@ const exportToExcel = async () => {
   showToast('Excel berhasil didownload', 'success');
 };
 
-// 2. Import Excel (Process File)
-const handleFileSelect = (e) => {
+// 2. Import Excel (Process File) dengan ExcelJS
+const handleFileSelect = async (e) => {
   const files = e.target.files;
   if (!files.length) return;
   
@@ -532,124 +532,151 @@ const handleFileSelect = (e) => {
   parsedExcelData.value = [];
   validationErrors.value = [];
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      
-      // Parse ke JSON raw
-      const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-      
-      if (jsonData.length === 0) return showToast('File Excel kosong', 'error');
-
-      // List No Pengiriman yang sudah ada di DB (untuk cek unik)
-      const existingNos = shippings.value.map(s => s.shippingNo);
-      const today = new Date();
-      today.setHours(0,0,0,0);
-
-      const validRows = [];
-      const errors = [];
-
-      jsonData.forEach((row, index) => {
-        // Mapping Kolom (Case Insensitive)
-        // Excel headers might be "No. Pengiriman" or "no pengiriman"
-        // Helper untuk ambil value secara case-insensitive
-        const getVal = (keys) => {
-          for (let key of Object.keys(row)) {
-            if (keys.includes(key.toLowerCase().trim())) return row[key];
-          }
-          return "";
-        };
-
-        const rawNo = getVal(["no. pengiriman", "no pengiriman", "nomor pengiriman"]);
-        const rawDate = getVal(["tanggal pengiriman", "tanggal"]);
-        const rawName = getVal(["nama pengiriman", "nama"]);
-        const rawPrice = getVal(["harga pengiriman", "harga"]);
-
-        // --- VALIDASI ---
-        let errorMsg = "";
-        let validDate = "";
-        let validPrice = 0;
-
-        // 1. Validasi Nama & Harga Dasar
-        if (!rawName) errorMsg = `Baris ${index + 2}: Nama kosong`;
-        
-        // 2. Parse Harga (Fix 95000 jadi 95)
-        if (!errorMsg) {
-          if (typeof rawPrice === 'string') {
-            // Hapus titik ribuan Indonesia (95.000 -> 95000)
-            // Hapus koma jika ada desimal tidak perlu
-            const cleanPrice = rawPrice.replace(/\./g, ''); 
-            validPrice = parseInt(cleanPrice) || 0;
-          } else if (typeof rawPrice === 'number') {
-            validPrice = rawPrice;
-          }
-          
-          if (!validPrice || validPrice <= 0) errorMsg = `Baris ${index + 2}: Harga tidak valid`;
-        }
-
-        // 3. Validasi Tanggal & Format
-        if (!errorMsg) {
-          // Jika rawDate adalah angka serial Excel
-          let dateObj;
-          if (typeof rawDate === 'number') {
-            const dateStr = XLSX.SSF.format('yyyy-mm-dd', rawDate);
-            dateObj = new Date(dateStr);
-          } else if (typeof rawDate === 'string') {
-            // Coba parse string DD-MM-YYYY atau YYYY-MM-DD
-            // Excel kadang input user DD/MM/YYYY atau DD-MM-YYYY
-            const parts = rawDate.includes('/') ? rawDate.split('/') : rawDate.split('-');
-            if (parts.length === 3) {
-               // Cek format DD-MM-YYYY atau YYYY-MM-DD
-               if (parts[0].length === 4) { // YYYY-MM-DD
-                  dateObj = new Date(rawDate);
-               } else { // DD-MM-YYYY (Assume)
-                  dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-               }
-            } else {
-              dateObj = new Date(rawDate);
-            }
-          }
-
-          if (isNaN(dateObj.getTime())) {
-            errorMsg = `Baris ${index + 2}: Format tanggal salah`;
-          } else {
-            validDate = dateObj.toISOString().split('T')[0]; // Convert back to YYYY-MM-DD
-            // Cek Tanggal > Hari Ini
-            if (dateObj > today) errorMsg = `Baris ${index + 2}: Tanggal tidak boleh > hari ini`;
-          }
-        }
-
-        // 4. Validasi Unik
-        if (!errorMsg && existingNos.includes(rawNo)) {
-          errorMsg = `Baris ${index + 2}: No. Pengiriman '${rawNo}' sudah ada`;
-        }
-
-        // Push Result
-        if (errorMsg) {
-          errors.push(errorMsg);
-        } else {
-          validRows.push({
-            shippingNo: rawNo || "", // Backend akan auto-generate jika kosong sesuai logic sebelumnya
-            date: validDate,
-            name: rawName,
-            price: validPrice
-          });
-        }
-      });
-
-      parsedExcelData.value = validRows;
-      validationErrors.value = errors;
-
-    } catch (err) {
-      console.error(err);
-      showToast('Gagal membaca file Excel', 'error');
+  try {
+    // Baca file dengan ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    const arrayBuffer = await file.arrayBuffer();
+    await workbook.xlsx.load(arrayBuffer);
+    
+    // Ambil worksheet pertama
+    const worksheet = workbook.getWorksheet(1);
+    
+    if (!worksheet) {
+      return showToast('File Excel tidak memiliki worksheet', 'error');
     }
-  };
-  reader.readAsArrayBuffer(file);
+    
+    // List No Pengiriman yang sudah ada di DB (untuk cek unik)
+    const existingNos = shippings.value.map(s => s.shippingNo);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const validRows = [];
+    const errors = [];
+    
+    // Ambil header baris pertama
+    const headerRow = worksheet.getRow(1);
+    const headers = [];
+    
+    // Perbaikan: Gunakan eachCell dengan benar
+    headerRow.eachCell((cell, colNumber) => {
+      // ExcelJS colNumber dimulai dari 1, jadi kita push ke array
+      headers.push(cell.value ? cell.value.toString().toLowerCase().trim() : '');
+    });
+    
+    // Cari indeks kolom yang dibutuhkan
+    const findColumnIndex = (possibleNames) => {
+      for (const name of possibleNames) {
+        // Perbaikan: Pastikan headers tidak undefined dan gunakan findIndex dengan benar
+        const index = headers.findIndex(h => h && h.includes(name));
+        if (index !== -1) return index;
+      }
+      return -1;
+    };
+    
+    const noColIndex = findColumnIndex(["no. pengiriman", "no pengiriman", "nomor pengiriman"]);
+    const dateColIndex = findColumnIndex(["tanggal pengiriman", "tanggal"]);
+    const nameColIndex = findColumnIndex(["nama pengiriman", "nama"]);
+    const priceColIndex = findColumnIndex(["harga pengiriman", "harga"]);
+    
+    // Proses setiap baris data (dimulai dari baris ke-2)
+    worksheet.eachRow((row, rowNumber) => {
+      // Skip header row
+      if (rowNumber === 1) return;
+      
+      // Perbaikan: Ambil nilai dari setiap kolom dengan benar
+      // ExcelJS row.getCell dimulai dari 1, bukan 0
+      const rawNo = noColIndex !== -1 ? (row.getCell(noColIndex + 1).value || "") : "";
+      const rawDate = dateColIndex !== -1 ? (row.getCell(dateColIndex + 1).value || "") : "";
+      const rawName = nameColIndex !== -1 ? (row.getCell(nameColIndex + 1).value || "") : "";
+      const rawPrice = priceColIndex !== -1 ? (row.getCell(priceColIndex + 1).value || "") : "";
+      
+      // Validasi
+      let errorMsg = "";
+      let validDate = "";
+      let validPrice = 0;
+      
+      // 1. Validasi Nama
+      if (!rawName) {
+        errorMsg = `Baris ${rowNumber}: Nama kosong`;
+      }
+      
+      // 2. Parse Harga
+      if (!errorMsg) {
+        if (typeof rawPrice === 'string') {
+          // Hapus titik ribuan Indonesia (95.000 -> 95000)
+          const cleanPrice = rawPrice.replace(/\./g, ''); 
+          validPrice = parseInt(cleanPrice) || 0;
+        } else if (typeof rawPrice === 'number') {
+          validPrice = rawPrice;
+        }
+        
+        if (!validPrice || validPrice <= 0) {
+          errorMsg = `Baris ${rowNumber}: Harga tidak valid`;
+        }
+      }
+      
+      // 3. Validasi Tanggal
+      if (!errorMsg) {
+        let dateObj;
+        
+        if (typeof rawDate === 'number') {
+          // Jika rawDate adalah angka serial Excel
+          dateObj = new Date((rawDate - 25569) * 86400 * 1000);
+        } else if (typeof rawDate === 'string') {
+          // Coba parse string DD-MM-YYYY atau YYYY-MM-DD
+          const parts = rawDate.includes('/') ? rawDate.split('/') : rawDate.split('-');
+          if (parts.length === 3) {
+            // Cek format DD-MM-YYYY atau YYYY-MM-DD
+            if (parts[0].length === 4) { // YYYY-MM-DD
+              dateObj = new Date(rawDate);
+            } else { // DD-MM-YYYY (Assume)
+              dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+          } else {
+            dateObj = new Date(rawDate);
+          }
+        }
+        
+        if (isNaN(dateObj.getTime())) {
+          errorMsg = `Baris ${rowNumber}: Format tanggal salah`;
+        } else {
+          validDate = dateObj.toISOString().split('T')[0]; // Convert back to YYYY-MM-DD
+          // Cek Tanggal > Hari Ini
+          if (dateObj > today) {
+            errorMsg = `Baris ${rowNumber}: Tanggal tidak boleh > hari ini`;
+          }
+        }
+      }
+      
+      // 4. Validasi Unik
+      if (!errorMsg && existingNos.includes(rawNo)) {
+        errorMsg = `Baris ${rowNumber}: No. Pengiriman '${rawNo}' sudah ada`;
+      }
+      
+      // Push Result
+      if (errorMsg) {
+        errors.push(errorMsg);
+      } else {
+        validRows.push({
+          shippingNo: rawNo || "", // Backend akan auto-generate jika kosong
+          date: validDate,
+          name: rawName,
+          price: validPrice
+        });
+      }
+    });
+
+    parsedExcelData.value = validRows;
+    validationErrors.value = errors;
+    
+    if (validRows.length === 0 && errors.length === 0) {
+      showToast('File Excel kosong', 'error');
+    }
+    
+  } catch (err) {
+    console.error(err);
+    showToast('Gagal membaca file Excel', 'error');
+  }
 };
 
 // 3. Kirim Data Excel ke Backend
