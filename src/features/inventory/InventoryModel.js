@@ -1,17 +1,15 @@
-// src/features/inventory/InventoryModel.js
 import api from '../../utils/api';
 
 export default class InventoryModel {
   static async fetchAll() {
     try {
-      const response = await api.get('/items');
+      const response = await api.get('/items'); // Endpoint GET items tetap sama
       return response.data;
     } catch (error) {
       throw new Error('Gagal mengambil data dari server');
     }
   }
 
-  // Create Manual (Tanpa D,S,H)
   static async create(itemData) {
     try {
       const response = await api.post('/items', itemData);
@@ -21,18 +19,21 @@ export default class InventoryModel {
     }
   }
 
-  // Fungsi Upload Data (Support Single & CSV Array)
-  static async uploadStock(data) {
-    // data bisa berupa object {} atau array [{}]
+  // PERBAIKAN: PISAHKAN ENDPOINT UNTUK IN & OUT
+  // Backend sekarang membedakan /upload/in dan /upload/out
+  static async uploadStock(type, data) {
     try {
-      const response = await api.post('/items/upload', data);
+      // Tentukan endpoint berdasarkan tipe (in/out)
+      const endpoint = type === 'in' ? '/items/upload/in' : '/items/upload/out';
+      
+      // Kirim data (bisa single object atau array)
+      const response = await api.post(endpoint, data);
       return response.data;
     } catch (error) {
-      throw new Error('Gagal upload barang');
+      throw new Error(error.response?.data?.message || 'Gagal upload barang');
     }
   }
 
-  // Ambil Riwayat Masuk per Kode Barang
   static async fetchHistory(itemCode) {
     try {
       const response = await api.get(`/items/history/${itemCode}`);

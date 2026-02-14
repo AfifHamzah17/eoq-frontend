@@ -68,14 +68,14 @@
             </button>
           </li>
           
-          <li v-if="isAdmin">
+          <!-- <li v-if="isAdmin">
             <button 
               @click="navigate('reports')" 
               :class="navClass('reports')" 
               class="nav-item w-full text-left px-4 py-3 rounded-lg transition flex items-center group z-20">
               <i class="fa-solid fa-file-invoice w-6 group-hover:text-blue-400"></i> Laporan
             </button>
-          </li>
+          </li> -->
 
           <li class="mt-4 mb-2 px-4 text-xs uppercase font-bold text-slate-500">Pengaturan</li>
           

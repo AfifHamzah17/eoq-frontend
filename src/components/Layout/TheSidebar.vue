@@ -55,11 +55,11 @@
           </button>
         </li>
         
-        <li v-if="isAdmin">
+        <!-- <li v-if="isAdmin">
           <button @click="navigate('reports')" :class="navClass('reports')" class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition flex items-center group">
             <i class="fa-solid fa-file-invoice w-6 group-hover:text-blue-400"></i> Laporan
           </button>
-        </li>
+        </li> -->
       </ul>
     </nav>
 

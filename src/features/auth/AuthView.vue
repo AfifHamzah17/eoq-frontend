@@ -84,7 +84,7 @@ const handleLogin = async () => {
 onMounted(async () => {
   try {
     // Gunakan axios global untuk cek koneksi
-    await axios.get('https://eoq-backend-1034091508339.asia-southeast1.run.app/'); 
+    await axios.get('http://localhost:3000/'); 
     backendStatus.value = true;
   } catch (e) {
     backendStatus.value = false;

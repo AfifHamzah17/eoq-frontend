@@ -63,7 +63,7 @@
           </tr>
           <tr v-for="item in filteredShippings" :key="item.id" class="bg-white border-b hover:bg-gray-50 transition-colors">
             <td class="px-6 py-4 font-medium text-gray-900">{{ item.shippingNo }}</td>
-            <!-- TAMPILAN TANGGAL DD-MM-YYYY -->
+            <!-- TAMPILAN TANGGAL FIX: 10 April 2025 -->
             <td class="px-6 py-4">{{ formatDateIndo(item.date) }}</td>
             <td class="px-6 py-4">{{ item.name }}</td>
             <td class="px-6 py-4 font-mono">{{ formatRupiah(item.price) }}</td>
@@ -120,7 +120,6 @@
                   </div>
                   <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pengiriman</label>
-                    <!-- Input date tetap YYYY-MM-DD (standard HTML) -->
                     <input v-model="form.date" type="date" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" required />
                   </div>
                   <div class="col-span-1 md:col-span-2">
@@ -230,42 +229,27 @@
       </Transition>
     </Teleport>
 
-        <!-- MODAL PROGRESS UPLOAD (Baru) -->
+    <!-- MODAL PROGRESS UPLOAD -->
     <Teleport to="#modal-portal">
       <Transition name="modal">
         <div v-if="isUploading" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div class="absolute inset-0 bg-black/80 backdrop-blur-sm z-0"></div>
-          
           <div class="relative bg-white w-full max-w-md rounded-2xl shadow-2xl border border-gray-100 p-8 text-center z-10 pointer-events-none">
-            
-            <!-- Spinner Animasi -->
             <div class="mb-4">
               <div class="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
             </div>
-
             <h3 class="text-xl font-bold text-gray-800 mb-2">Sedang Mengupload...</h3>
-            <p class="text-sm text-gray-500 mb-6 font-medium">
-              Jangan refresh halaman agar data tidak hilang
-            </p>
-
-            <!-- Progress Bar Container -->
+            <p class="text-sm text-gray-500 mb-6 font-medium">Jangan refresh halaman agar data tidak hilang</p>
             <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden relative">
-              <div 
-                class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-300 ease-out" 
-                :style="{ width: uploadProgress + '%' }"
-              ></div>
+              <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-300 ease-out" :style="{ width: uploadProgress + '%' }"></div>
             </div>
-
-            <!-- Text Counter -->
             <div class="flex justify-between items-center text-sm font-bold text-gray-700">
               <span>Proses: {{ uploadCount }} dari {{ uploadTotal }} Data</span>
               <span>{{ Math.round(uploadProgress) }}%</span>
             </div>
-            
             <p v-if="uploadCount === uploadTotal" class="text-emerald-600 font-bold mt-4 animate-pulse">
               <i class="fa-solid fa-check-circle mr-1"></i> Hampir Selesai!
             </p>
-
           </div>
         </div>
       </Transition>
@@ -318,8 +302,6 @@ const presenter = new ShippingPresenter({
   onDeleteSuccess: (msg) => showToast(msg, 'success'),
   showError: (msg) => showToast(msg, 'error'),
   closeForm: () => {},
-
-  // --- FUNGSI PROGRESS ---
   showUploadProgress: (state) => isUploading.value = state,
   setUploadTotal: (total) => uploadTotal.value = total,
   setUploadCount: (count) => uploadCount.value = count,
@@ -331,15 +313,28 @@ const formatRupiah = (num) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
 };
 
-// Format Tanggal: YYYY-MM-DD (DB) -> DD-MM-YYYY (Display)
+// --- PERBAIKAN FORMAT TANGGAL ---
+// Ubah dari "2025-04-10T00:00:00.000Z" atau "2025-04-10" menjadi "10 April 2025"
 const formatDateIndo = (dateString) => {
   if (!dateString) return '-';
-  // Jika dateString bukan string (misal timestamp), handle sesuai kebutuhan
-  const parts = dateString.split('-');
-  if (parts.length === 3) {
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  
+  // Jika format adalah ISO String (mengandung 'T'), new Date() bisa langsung parse
+  // Jika format YYYY-MM-DD, new Date() juga bisa parse (treat as UTC usually)
+  const date = new Date(dateString);
+
+  // Cek apakah date valid
+  if (isNaN(date.getTime())) {
+    // Fallback jika gagal parsing (mungkin string manual yang salah)
+    // Jika ingin format DD-MM-YYYY mentah, bisa kembalikan dateString
+    return dateString; 
   }
-  return dateString;
+
+  // Opsi format: 10 April 2025
+  const options = { day: 'numeric', month: 'long', year: 'numeric' };
+  
+  // toLocaleDateString akan otomatis menyesuaikan timezone browser,
+  // tapi untuk tanggal saja biasanya aman.
+  return date.toLocaleDateString('id-ID', options);
 };
 
 // --- FILTER & SORT ---
@@ -366,6 +361,13 @@ const filteredShippings = computed(() => {
   t.sort((a, b) => {
     let valA = a[sortKey.value];
     let valB = b[sortKey.value];
+    
+    // Handle date sorting specifically if needed (convert to Date objects)
+    if (sortKey.value === 'date') {
+        valA = new Date(valA).getTime();
+        valB = new Date(valB).getTime();
+    }
+
     if (valA < valB) return sortAsc.value ? -1 : 1;
     if (valA > valB) return sortAsc.value ? 1 : -1;
     return 0;
@@ -379,11 +381,9 @@ const openModal = () => {
   isEditing.value = false;
   activeTab.value = 'single';
   
-  // Default Date: Hari ini (YYYY-MM-DD)
   const today = new Date().toISOString().split('T')[0];
   Object.assign(form, { id: null, shippingNo: '', date: today, name: '', price: 0 });
   
-  // Reset Excel State
   excelFile.value = null;
   parsedExcelData.value = [];
   validationErrors.value = [];
@@ -396,10 +396,8 @@ const closeModal = () => {
 };
 
 const handleSubmit = () => {
-  // Manual Input Logic
   if (!form.name || !form.date) return showToast('Nama dan Tanggal wajib diisi', 'error');
   
-  // Validasi Tanggal Tidak Boleh > Hari Ini
   const today = new Date();
   today.setHours(0,0,0,0);
   const inputDate = new Date(form.date);
@@ -420,11 +418,18 @@ const openEdit = (item) => {
   isEditing.value = true;
   activeTab.value = 'single';
   
+  // Handling date for input type="date" (requires YYYY-MM-DD)
+  // If item.date is ISO string, split at 'T'
+  let dateValue = item.date;
+  if (typeof dateValue === 'string' && dateValue.includes('T')) {
+      dateValue = dateValue.split('T')[0];
+  }
+
   const priceNum = parseInt(item.price); 
   Object.assign(form, { 
     id: item.id, 
     shippingNo: item.shippingNo, 
-    date: item.date, 
+    date: dateValue, 
     name: item.name, 
     price: priceNum 
   });
@@ -460,7 +465,6 @@ const exportToExcel = async () => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Data Pengiriman');
   
-  // Styles
   const headerStyle = {
     fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } },
     font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
@@ -479,7 +483,6 @@ const exportToExcel = async () => {
     { header: 'Harga Pengiriman', key: 'price', width: 25 },
   ];
 
-  // Header Style
   const headerRow = sheet.getRow(1);
   headerRow.height = 25;
   headerRow.eachCell((cell) => cell.style = headerStyle);
@@ -488,17 +491,16 @@ const exportToExcel = async () => {
   shippings.value.forEach(s => {
     const row = sheet.addRow({
       no: s.shippingNo,
-      date: s.date,
+      // Untuk Excel, lebih baik format YYYY-MM-DD atau DD/MM/YYYY string
+      date: s.date ? new Date(s.date).toISOString().split('T')[0] : '-', 
       name: s.name,
-      price: s.price // Masukkan angka mentah (integer)
+      price: s.price
     });
 
     row.eachCell((cell) => {
       cell.style = borderStyle;
-      
-      // Format Rupiah di Kolom D (Index 4)
       if (cell.column === 4) {
-        cell.numFmt = '"Rp"#,##0'; // Format: Rp 10.000 (otomatis)
+        cell.numFmt = '"Rp"#,##0';
       }
     });
   });
@@ -515,13 +517,12 @@ const exportToExcel = async () => {
   showToast('Excel berhasil didownload', 'success');
 };
 
-// 2. Import Excel (Process File) dengan ExcelJS
+// 2. Import Excel
 const handleFileSelect = async (e) => {
   const files = e.target.files;
   if (!files.length) return;
   
   const file = files[0];
-  // Cek ekstensi
   const validExts = [".xlsx", ".xls"];
   const fileExt = file.name.substring(file.name.lastIndexOf('.'));
   if (!validExts.includes(fileExt)) {
@@ -533,19 +534,16 @@ const handleFileSelect = async (e) => {
   validationErrors.value = [];
 
   try {
-    // Baca file dengan ExcelJS
     const workbook = new ExcelJS.Workbook();
     const arrayBuffer = await file.arrayBuffer();
     await workbook.xlsx.load(arrayBuffer);
     
-    // Ambil worksheet pertama
     const worksheet = workbook.getWorksheet(1);
     
     if (!worksheet) {
       return showToast('File Excel tidak memiliki worksheet', 'error');
     }
     
-    // List No Pengiriman yang sudah ada di DB (untuk cek unik)
     const existingNos = shippings.value.map(s => s.shippingNo);
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -553,20 +551,15 @@ const handleFileSelect = async (e) => {
     const validRows = [];
     const errors = [];
     
-    // Ambil header baris pertama
     const headerRow = worksheet.getRow(1);
     const headers = [];
     
-    // Perbaikan: Gunakan eachCell dengan benar
     headerRow.eachCell((cell, colNumber) => {
-      // ExcelJS colNumber dimulai dari 1, jadi kita push ke array
       headers.push(cell.value ? cell.value.toString().toLowerCase().trim() : '');
     });
     
-    // Cari indeks kolom yang dibutuhkan
     const findColumnIndex = (possibleNames) => {
       for (const name of possibleNames) {
-        // Perbaikan: Pastikan headers tidak undefined dan gunakan findIndex dengan benar
         const index = headers.findIndex(h => h && h.includes(name));
         if (index !== -1) return index;
       }
@@ -578,32 +571,24 @@ const handleFileSelect = async (e) => {
     const nameColIndex = findColumnIndex(["nama pengiriman", "nama"]);
     const priceColIndex = findColumnIndex(["harga pengiriman", "harga"]);
     
-    // Proses setiap baris data (dimulai dari baris ke-2)
     worksheet.eachRow((row, rowNumber) => {
-      // Skip header row
       if (rowNumber === 1) return;
       
-      // Perbaikan: Ambil nilai dari setiap kolom dengan benar
-      // ExcelJS row.getCell dimulai dari 1, bukan 0
       const rawNo = noColIndex !== -1 ? (row.getCell(noColIndex + 1).value || "") : "";
       const rawDate = dateColIndex !== -1 ? (row.getCell(dateColIndex + 1).value || "") : "";
       const rawName = nameColIndex !== -1 ? (row.getCell(nameColIndex + 1).value || "") : "";
       const rawPrice = priceColIndex !== -1 ? (row.getCell(priceColIndex + 1).value || "") : "";
       
-      // Validasi
       let errorMsg = "";
       let validDate = "";
       let validPrice = 0;
       
-      // 1. Validasi Nama
       if (!rawName) {
         errorMsg = `Baris ${rowNumber}: Nama kosong`;
       }
       
-      // 2. Parse Harga
       if (!errorMsg) {
         if (typeof rawPrice === 'string') {
-          // Hapus titik ribuan Indonesia (95.000 -> 95000)
           const cleanPrice = rawPrice.replace(/\./g, ''); 
           validPrice = parseInt(cleanPrice) || 0;
         } else if (typeof rawPrice === 'number') {
@@ -615,50 +600,48 @@ const handleFileSelect = async (e) => {
         }
       }
       
-      // 3. Validasi Tanggal
       if (!errorMsg) {
         let dateObj;
         
         if (typeof rawDate === 'number') {
-          // Jika rawDate adalah angka serial Excel
+          // Excel serial date number
           dateObj = new Date((rawDate - 25569) * 86400 * 1000);
         } else if (typeof rawDate === 'string') {
-          // Coba parse string DD-MM-YYYY atau YYYY-MM-DD
+           // String parsing logic
           const parts = rawDate.includes('/') ? rawDate.split('/') : rawDate.split('-');
           if (parts.length === 3) {
-            // Cek format DD-MM-YYYY atau YYYY-MM-DD
             if (parts[0].length === 4) { // YYYY-MM-DD
               dateObj = new Date(rawDate);
-            } else { // DD-MM-YYYY (Assume)
+            } else { // DD-MM-YYYY
               dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
             }
           } else {
             dateObj = new Date(rawDate);
           }
+        } else if (rawDate instanceof Date) {
+            // Already a date object (ExcelJS sometimes returns date objects)
+            dateObj = rawDate;
         }
         
-        if (isNaN(dateObj.getTime())) {
+        if (!dateObj || isNaN(dateObj.getTime())) {
           errorMsg = `Baris ${rowNumber}: Format tanggal salah`;
         } else {
-          validDate = dateObj.toISOString().split('T')[0]; // Convert back to YYYY-MM-DD
-          // Cek Tanggal > Hari Ini
+          validDate = dateObj.toISOString().split('T')[0];
           if (dateObj > today) {
             errorMsg = `Baris ${rowNumber}: Tanggal tidak boleh > hari ini`;
           }
         }
       }
       
-      // 4. Validasi Unik
       if (!errorMsg && existingNos.includes(rawNo)) {
         errorMsg = `Baris ${rowNumber}: No. Pengiriman '${rawNo}' sudah ada`;
       }
       
-      // Push Result
       if (errorMsg) {
         errors.push(errorMsg);
       } else {
         validRows.push({
-          shippingNo: rawNo || "", // Backend akan auto-generate jika kosong
+          shippingNo: rawNo || "", 
           date: validDate,
           name: rawName,
           price: validPrice
@@ -693,11 +676,11 @@ const handleExcelUpload = () => {
   closeModal();
 };
 
-// --- HARGA INPUT LOGIC (Manual Input) ---
+// --- HARGA INPUT LOGIC ---
 const formattedPrice = ref('');
 
 const handleInputPrice = (e) => {
-  const rawValue = e.target.value.replace(/\D/g, ''); // Ambil angka saja
+  const rawValue = e.target.value.replace(/\D/g, '');
   if (rawValue === '') {
     formattedPrice.value = '';
     form.price = 0;

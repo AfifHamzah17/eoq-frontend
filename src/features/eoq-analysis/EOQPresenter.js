@@ -1,40 +1,55 @@
-import EOQModel from './EOQModel';
+// frontend/presenters/EOQPresenter.js
+import api from '../../utils/api';
 
 export default class EOQPresenter {
   constructor(view) {
     this.view = view;
   }
 
+  async fetchGlobalData() {
+    try {
+      const response = await api.get('/eoq/parameters');
+      const data = response.data.data;
+
+      const S = data.avgShippingCost;
+
+      this.view.onDataLoaded({
+        totalStock: data.totalStock,
+        avgShippingCost: S
+      });
+
+    } catch (error) {
+      console.error(error);
+      this.view.showError("Gagal memuat parameter EOQ.");
+    }
+  }
+
   calculate(d, s, h) {
-    // 1. Validasi
     if (!d || !s || !h || d <= 0 || s <= 0 || h <= 0) {
-      this.view.showValidationError("Semua parameter harus diisi dengan angka positif.");
+      this.view.showError("Parameter tidak valid untuk perhitungan.");
       return;
     }
 
-    // 2. Rumus EOQ (Q*)
-    // Q* = sqrt( (2 * D * S) / H )
+    // Rumus EOQ
     const q = Math.round(Math.sqrt((2 * d * s) / h));
-
-    // 3. Total Cost (TC)
-    // TC = (D/Q)*S + (Q/2)*H
     const orderingCost = (d / q) * s;
     const holdingCost = (q / 2) * h;
     const totalCost = orderingCost + holdingCost;
-
-    // 4. Frekuensi Pemesanan
     const frequency = Math.round(d / q);
 
-    // 5. Simpan History (Opsional via Model)
-    EOQModel.saveCalculationHistory({ d, s, h, q, totalCost });
+    // --- TAMBAHAN: Perhitungan Interval Hari (T) ---
+    // Asumsi 1 tahun = 360 hari kerja
+    const workingDays = 360; 
+    const intervalDays = (workingDays / frequency).toFixed(1); // Dibulatkan 1 desimal
+    // -----------------------------------------------
 
-    // 6. Kirim ke View
-    this.view.renderResult({
-      q,
-      orderingCost,
-      holdingCost,
-      totalCost,
-      frequency
+    this.view.onCalculationReady({
+      q, 
+      oc: orderingCost, 
+      hc: holdingCost, 
+      tc: totalCost, 
+      freq: frequency,
+      intervalDays: intervalDays // Kirim data hari
     });
   }
 }

@@ -1,4 +1,5 @@
 import api from '../../utils/api';
+import InventoryModel from './InventoryModel'; // <--- INI YANG HILANG (PENYEBAB ERROR)
 
 export default class InventoryPresenter {
   constructor(view) {
@@ -19,37 +20,38 @@ export default class InventoryPresenter {
     }
   }
 
-  // UPDATE: Loop Satu Per Satu untuk Progress Realtime
+  // LOGIC UPLOAD: Loop untuk Progress Bar
   async uploadStock(type, dataArray) {
     try {
       // 1. Setup UI Progress
       this.view.showUploadProgress(true);
-      this.view.setUploadTotal(dataArray.length);
+      // Jika data bukan array (input satuan), jadikan array dulu
+      const dataToList = Array.isArray(dataArray) ? dataArray : [dataArray];
+      
+      this.view.setUploadTotal(dataToList.length);
       this.view.setUploadCount(0);
 
       let successCount = 0;
       let errorCount = 0;
 
       // 2. Loop Data
-      for (const item of dataArray) {
-        try {
-          // Tentukan endpoint
-          const endpoint = type === 'in' ? '/upload/in' : '/upload/out';
-          
-          // Kirim satuan (req.body adalah object, backend akan membungkusnya dalam array)
-          await api.post(`${this.apiUrl}${endpoint}`, item);
+      for (const item of dataToList) {
+        try {          
+          // PENTING: Kirim data SATUAN (item).
+          // Backend Controller sudah dibungkus handle array [] atau object {}
+          await InventoryModel.uploadStock(type, item);
           
           successCount++;
           
-          // Update UI
+          // Update UI Progress
           this.view.setUploadCount(successCount);
-          const percentage = (successCount / dataArray.length) * 100;
+          const percentage = (successCount / dataToList.length) * 100;
           this.view.updateProgress(percentage);
 
         } catch (err) {
           errorCount++;
           console.warn("Gagal upload item:", item, err);
-          // Lanjut ke item berikutnya (jangan break)
+          // Lanjut ke item berikutnya
         }
       }
 
@@ -57,7 +59,7 @@ export default class InventoryPresenter {
       this.view.showUploadProgress(false);
       
       const baseMsg = type === 'in' ? 'Barang Masuk' : 'Barang Keluar';
-      if (successCount === dataArray.length) {
+      if (successCount === dataToList.length) {
         this.view.onCreateSuccess(`Berhasil upload ${successCount} data ${baseMsg}.`);
       } else {
         this.view.onCreateSuccess(`Upload selesai. Berhasil: ${successCount}, Gagal: ${errorCount}`);
@@ -104,7 +106,7 @@ export default class InventoryPresenter {
       const payload = { name: itemData.name, stock: parseInt(itemData.stock || 0), shopName: itemData.shopName };
       await api.put(`${this.apiUrl}/${id}`, payload);
       this.view.onUpdateSuccess('Barang berhasil diperbarui');
-      this.view.closeForm();
+      // this.view.closeForm(); // Uncomment jika ada form edit
       this.loadItems();
     } catch (error) {
       this.view.showError(error.response?.data?.message || 'Gagal mengupdate barang.');
@@ -126,7 +128,7 @@ export default class InventoryPresenter {
     }
   }
   
-   async getInventoryReport() {
+  async getInventoryReport() {
     try {
       const response = await api.get(`${this.apiUrl}/report`);
       return response.data.data;

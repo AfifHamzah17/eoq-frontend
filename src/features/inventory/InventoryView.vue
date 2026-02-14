@@ -197,7 +197,7 @@
                   <tbody class="divide-y">
                     <tr v-if="historyData.length === 0"><td colspan="5" class="text-center py-8 text-gray-500">Belum ada riwayat.</td></tr>
                     <tr v-for="log in historyData" :key="log.id" class="hover:bg-gray-50">
-                      <td class="px-6 py-3">{{ formatDateDisplay(log.date) }}</td>
+                      <td class="px-6 py-3">{{ formatDateIndo(log.date) }}</td>
                       <td class="px-6 py-3">
                         <span :class="['px-2 py-1 rounded text-xs font-bold uppercase', log.type === 'in' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700']">
                           {{ log.type === 'in' ? 'Masuk' : 'Keluar' }}
@@ -351,6 +351,28 @@ const formatDateDisplay = (dateString) => {
     return `${d}/${m}/${y}`; 
   }
   return dateString;
+};
+
+const formatDateIndo = (dateString) => {
+  if (!dateString) return '-';
+  
+  // Jika format adalah ISO String (mengandung 'T'), new Date() bisa langsung parse
+  // Jika format YYYY-MM-DD, new Date() juga bisa parse (treat as UTC usually)
+  const date = new Date(dateString);
+
+  // Cek apakah date valid
+  if (isNaN(date.getTime())) {
+    // Fallback jika gagal parsing (mungkin string manual yang salah)
+    // Jika ingin format DD-MM-YYYY mentah, bisa kembalikan dateString
+    return dateString; 
+  }
+
+  // Opsi format: 10 April 2025
+  const options = { day: 'numeric', month: 'long', year: 'numeric' };
+  
+  // toLocaleDateString akan otomatis menyesuaikan timezone browser,
+  // tapi untuk tanggal saja biasanya aman.
+  return date.toLocaleDateString('id-ID', options);
 };
 
 // --- SORTING ---

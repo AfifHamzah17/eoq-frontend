@@ -1,11 +1,12 @@
 import axios from 'axios';
 import Storage from './storage';
 
+// PASTIKAN INI YANG AKTIF
 const apiClient = axios.create({
-  baseURL: 'https://eoq-backend-1034091508339.asia-southeast1.run.app/api'
+  baseURL: 'http://localhost:3000/api' 
 });
 
-// Interceptor Request: Pasang Token otomatis
+// Interceptor Request
 apiClient.interceptors.request.use(
   (config) => {
     const token = Storage.getToken();
@@ -17,13 +18,12 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor Response: Handle Error 401 (Unauthorized)
+// Interceptor Response
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
       Storage.clearUser();
-      // Redirect ke login jika token mati
       window.location.href = '/auth'; 
     }
     return Promise.reject(error);
