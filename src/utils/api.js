@@ -1,7 +1,6 @@
 import axios from 'axios';
 import Storage from './storage';
 
-// PASTIKAN INI YANG AKTIF
 const apiClient = axios.create({
   baseURL: 'http://localhost:3000/api' 
 });
