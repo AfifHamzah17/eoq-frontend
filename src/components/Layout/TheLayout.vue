@@ -11,7 +11,7 @@
       <nav class="flex-1 overflow-y-auto py-4">
         <ul class="space-y-1 px-3">
           <!-- Main Menu -->
-          <li>
+          <li v-if="isAdmin">
             <button 
               @click="navigate('dashboard')" 
               :class="navClass('dashboard')" 
@@ -24,7 +24,7 @@
           <!-- Stock Management (Admin Only) -->
           <li class="mt-4 mb-2 px-4 text-xs uppercase font-bold text-slate-500">Manajemen Stok</li>
           
-          <li v-if="isAdmin">
+          <li>
             <button 
               @click="navigate('inventory')" 
               :class="navClass('inventory')" 
@@ -47,7 +47,7 @@
           </li>
 
           <!-- Sales (Admin Only) -->
-          <li v-if="isAdmin">
+          <li>
             <button 
               @click="navigate('sales')" 
               :class="navClass('sales')" 

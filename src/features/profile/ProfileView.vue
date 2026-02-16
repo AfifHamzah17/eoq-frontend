@@ -46,7 +46,7 @@
         </div>
       </div>
 
-      <!-- FORM GANTI PASSWORD SENDIRI (UPDATED) -->
+      <!-- FORM GANTI PASSWORD SENDIRI -->
       <form @submit.prevent="handleMyPasswordChange" class="space-y-5 max-w-lg">
         
         <!-- 1. Password Lama -->
@@ -59,7 +59,6 @@
             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-10" 
             required 
           />
-          <!-- Eye Icon -->
           <button 
             type="button" 
             @click="showMyPasswords.current = !showMyPasswords.current" 
@@ -79,7 +78,6 @@
             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-10" 
             required 
           />
-          <!-- Eye Icon -->
           <button 
             type="button" 
             @click="showMyPasswords.new = !showMyPasswords.new" 
@@ -89,7 +87,7 @@
           </button>
         </div>
 
-        <!-- 3. Ulangi Password Baru (BARU) -->
+        <!-- 3. Ulangi Password Baru -->
         <div class="relative">
           <label class="block text-sm font-medium text-gray-700 mb-1">Ulangi Password Baru <span class="text-red-500">*</span></label>
           <input 
@@ -100,7 +98,6 @@
             :class="{'border-red-500': myPassForm.new && myPassForm.new !== myPassForm.confirm}"
             required 
           />
-          <!-- Eye Icon -->
           <button 
             type="button" 
             @click="showMyPasswords.confirm = !showMyPasswords.confirm" 
@@ -108,7 +105,6 @@
           >
             <i :class="showMyPasswords.confirm ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
           </button>
-          <!-- Pesan Validasi Inline -->
           <div v-if="myPassForm.new && myPassForm.new !== myPassForm.confirm" class="text-xs text-red-500 mt-1">
             Password tidak cocok!
           </div>
@@ -142,7 +138,7 @@
             <tr v-if="users.length === 0">
               <td colspan="5" class="text-center py-4 text-gray-500">Memuat data...</td>
             </tr>
-            <tr v-for="u in users" :key="u.username" class="border-b hover:bg-gray-50">
+            <tr v-for="u in users" :key="u.id" class="border-b hover:bg-gray-50">
               <td class="px-4 py-3 font-medium">{{ u.name }}</td>
               <td class="px-4 py-3 text-gray-600">@{{ u.username }}</td>
               <td class="px-4 py-3 text-gray-600">{{ u.email }}</td>
@@ -186,7 +182,6 @@
             class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none pr-10" 
             required 
           />
-          <!-- Eye Icon -->
           <button 
             type="button" 
             @click="showResetPassword = !showResetPassword" 
@@ -220,10 +215,9 @@ const props = defineProps({
 const myPassForm = reactive({
   current: '',
   new: '',
-  confirm: '' // Tambah field ulang password
+  confirm: ''
 });
 
-// State untuk show/hide password di form "Profil Saya"
 const showMyPasswords = reactive({
   current: false,
   new: false,
@@ -240,18 +234,16 @@ const resetForm = reactive({
 
 const users = ref([]);
 const isResetModalOpen = ref(false);
-const showResetPassword = ref(false); // State show password modal
+const showResetPassword = ref(false);
 const API_URL = 'http://localhost:3000/api';
 
 // --- FUNGSI 1: GANTI PASSWORD SENDIRI ---
 const handleMyPasswordChange = async () => {
-  // 1. Validasi Wajib Isi Semua
   if (!myPassForm.current || !myPassForm.new || !myPassForm.confirm) {
     showToast('Isi semua kolom password', 'error');
     return;
   }
 
-  // 2. Validasi Password Baru Sama dengan Ulangi
   if (myPassForm.new !== myPassForm.confirm) {
     showToast('Password baru tidak sama dengan ulangi password!', 'error');
     return;
@@ -263,17 +255,15 @@ const handleMyPasswordChange = async () => {
 
     await axios.post(`${API_URL}/auth/change-password`, {
       currentPassword: myPassForm.current,
-      newPassword: myPassForm.new // Kirim password baru
+      newPassword: myPassForm.new
     }, { headers: { Authorization: `Bearer ${token}` } });
 
     showToast('Password berhasil diperbarui', 'success');
     
-    // Reset Form
     myPassForm.current = '';
     myPassForm.new = '';
     myPassForm.confirm = '';
     
-    // Reset Toggle Password
     showMyPasswords.current = false;
     showMyPasswords.new = false;
     showMyPasswords.confirm = false;
@@ -342,13 +332,17 @@ const handleAvatarUpload = async (event) => {
   }
 };
 
-// --- FUNGSI 4: OPEN MODAL RESET ---
+// --- FUNGSI 4: OPEN MODAL RESET (DIPERBAIKI) ---
 const openResetModal = (userData) => {
   const targetIsAdmin = userData.role === 'admin';
 
   resetForm.targetName = userData.name;
   resetForm.targetUsername = userData.username;
-  resetForm.targetUserId = userData.userId;
+  
+  // PERBAIKAN: Ambil ID dari 'id' atau '_id', jangan 'userId'
+  // Karena UserModel toJSON mengubah _id menjadi id
+  resetForm.targetUserId = userData.id || userData._id; 
+  
   resetForm.newPassword = '';
   resetForm.isAdmin = targetIsAdmin;
   showResetPassword.value = false; 
@@ -362,33 +356,27 @@ const handleAdminReset = async () => {
     return;
   }
 
+  // Validasi tambahan jika ID masih belum kebaca (defensive coding)
+  if (!resetForm.targetUserId) {
+    showToast('Error: ID User tidak terdeteksi. Coba refresh halaman.', 'error');
+    console.error('Data user yang diklik tidak memiliki ID:', resetForm);
+    return;
+  }
+
   try {
     const token = Storage.getToken();
     if (!token) { showToast('Sesi habis', 'error'); return; }
 
-    let endpoint = '/auth/users/reset-password';
-    let body = {};
-
-    if (resetForm.isAdmin) {
-      endpoint = '/auth/users/self-reset';
-      body = {
-        targetUserId: resetForm.targetUserId,
-        newPassword: resetForm.newPassword
-      };
-    } else {
-      body = {
-        iduser: resetForm.targetUserId,
-        newPassword: resetForm.newPassword
-      };
-    }
-
-    await axios.post(`${API_URL}${endpoint}`, body, {
+    await axios.post(`${API_URL}/auth/users/reset-password`, {
+      iduser: resetForm.targetUserId,
+      newPassword: resetForm.newPassword
+    }, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
     showToast(`Password ${resetForm.targetName} berhasil direset`, 'success');
     isResetModalOpen.value = false;
-    fetchUsers();
+    fetchUsers(); 
   } catch (error) {
     const msg = error.response?.data?.message || error.message;
     showToast(msg, 'error');
