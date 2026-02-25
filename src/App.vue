@@ -1,7 +1,12 @@
 <template>
   <div id="app" class="text-gray-800 font-sans">
     <!-- Login View -->
-    <AuthView v-if="!currentUser" @login-success="handleLoginSuccess" />
+    <!-- Tambahkan @login-error untuk menangkap error dari AuthView -->
+    <AuthView 
+      v-if="!currentUser" 
+      @login-success="handleLoginSuccess" 
+      @login-error="handleLoginError" 
+    />
 
     <!-- App Layout -->
     <TheLayout 
@@ -47,7 +52,7 @@
 
 <script setup>
 import { provide } from 'vue';
-import { ref, onMounted, onUnmounted, watch } from 'vue'; // Tambahkan watch
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { showToast } from './utils/toastify';
 
 // Import Views
@@ -85,29 +90,47 @@ watch(currentPage, (newPage) => {
   localStorage.setItem('lastPage', newPage);
 });
 
+// --- HANDLERS ---
+
+// 1. Handle Login Success
 const handleLoginSuccess = (user) => {
   Storage.setUser(user);
   currentUser.value = user;
   
   // Logika Routing Berdasarkan Role
   if (user && user.role === 'admin') {
-    // Admin: Cek apakah ada halaman terakhir yang tersimpan, jika tidak arahkan ke dashboard
     const lastPage = localStorage.getItem('lastPage');
     currentPage.value = lastPage || 'dashboard';
-    showToast('Login Berhasil sebagai Admin', 'success');
+    // Toast Success Admin
+    showToast(`Selamat datang kembali, Admin!`, 'success');
   } else {
-    // Bukan Admin: Paksa arahkan ke inventory (kelola barang)
     currentPage.value = 'inventory';
-    showToast('Login Berhasil', 'success');
+    // Toast Success Karyawan/User Biasa
+    showToast(`Login berhasil, selamat datang ${user.name || ''}!`, 'success');
   }
 };
 
+// 2. Handle Login Error (Dipanggil dari AuthView emit)
+const handleLoginError = (errorMessage) => {
+  // Toast Error (Password salah, user tidak ditemukan, dll)
+  showToast(errorMessage || 'Terjadi kesalahan saat login', 'error');
+
+  console.warn('Login attempt failed:', errorMessage);
+
+};
+
+// 3. Handle Logout
 const handleLogout = () => {
+  // Simpan nama sebelum dihapus untuk pesan perpisahan (opsional)
+  // const name = currentUser.value?.name;
+  
   Storage.clearUser();
   currentUser.value = null;
-  // Hapus cache halaman saat logout agar bersih
   localStorage.removeItem('lastPage');
   currentPage.value = 'dashboard'; 
+  
+  // Toast Logout
+  showToast('Anda telah berhasil logout.', 'info');
 };
 
 const handleNavigate = (page) => {

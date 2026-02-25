@@ -69,21 +69,26 @@
                 <i v-else class="fa-solid fa-sort text-gray-300 opacity-0 group-hover:opacity-100"></i>
               </div>
             </th>
-            <th @click="sortBy('stock')" class="px-6 py-3 text-center cursor-pointer hover:bg-gray-100 select-none group">
+            <!-- Kolom Stok dengan Tooltip -->
+            <th @click="sortBy('stock')" class="px-6 py-3 text-center cursor-pointer hover:bg-gray-100 select-none group relative">
               <div class="flex items-center justify-center gap-1">
                 Stok
                 <i v-if="sortKey === 'stock'" class="fa-solid text-blue-600" :class="sortAsc ? 'fa-sort-up' : 'fa-sort-down'"></i>
                 <i v-else class="fa-solid fa-sort text-gray-300 opacity-0 group-hover:opacity-100"></i>
+              </div>
+              <!-- Tooltip Total Stok -->
+              <div class="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max bg-gray-900 text-white text-xs rounded py-1.5 px-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-lg">
+                Total Stok: <span class="font-bold text-green-300">{{ totalStock.toLocaleString('id-ID') }}</span>
               </div>
             </th>
             <th class="px-6 py-3 text-center">Aksi</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="filteredItems.length === 0">
+          <tr v-if="paginatedItems.length === 0">
             <td colspan="5" class="text-center py-8 text-gray-500">Data tidak ditemukan.</td>
           </tr>
-          <tr v-for="item in filteredItems" :key="item.id" class="bg-white border-b hover:bg-gray-50 transition-colors">
+          <tr v-for="item in paginatedItems" :key="item.id" class="bg-white border-b hover:bg-gray-50 transition-colors">
             <td class="px-6 py-4 font-medium text-gray-900">{{ item.code }}</td>
             <td class="px-6 py-4">{{ item.name }}</td>
             <td class="px-6 py-4">
@@ -104,9 +109,35 @@
           </tr>
         </tbody>
       </table>
+
+      <!-- PAGINATION FOOTER -->
+      <div class="px-4 py-3 border-t bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-3">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-gray-600">Tampilkan:</span>
+          <select v-model.number="itemsPerPage" class="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-blue-500 outline-none cursor-pointer">
+            <option :value="5">5</option>
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+          <span class="text-gray-400">atau</span>
+          <input type="number" v-model.number="customLimitInput" @keyup.enter="applyCustomLimit" @blur="applyCustomLimit" placeholder="Custom" min="1" class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-blue-500 outline-none appearance-none"/>
+        </div>
+        <div class="text-sm text-gray-600 order-first sm:order-none">
+          Menampilkan <span class="font-semibold text-gray-800">{{ paginationInfo.start }}</span> - <span class="font-semibold text-gray-800">{{ paginationInfo.end }}</span> dari <span class="font-semibold text-gray-800">{{ filteredItems.length }}</span> data
+        </div>
+        <div class="flex items-center gap-1">
+          <button @click="currentPage = 1" :disabled="currentPage === 1" class="px-2 py-1 rounded border hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-angles-left text-xs"></i></button>
+          <button @click="currentPage--" :disabled="currentPage === 1" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">Prev</button>
+          <span class="px-3 py-1 text-sm font-bold text-blue-600">{{ currentPage }} / {{ totalPages || 1 }}</span>
+          <button @click="currentPage++" :disabled="currentPage === totalPages" class="px-3 py-1 border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium">Next</button>
+          <button @click="currentPage = totalPages" :disabled="currentPage === totalPages" class="px-2 py-1 rounded border hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"><i class="fa-solid fa-angles-right text-xs"></i></button>
+        </div>
+      </div>
     </div>
 
-    <!-- MODAL 1: UPLOAD BARANG (Z-INDEX 100) -->
+    <!-- MODAL 1: UPLOAD BARANG -->
     <Teleport to="#modal-portal">
       <Transition name="modal">
         <div v-if="isUploadModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -142,19 +173,14 @@
               
               <!-- TAB 2: EXCEL UPLOAD -->
               <div v-else class="space-y-4">
-                <!-- Dropzone Area -->
-                <div @click="$refs.fileInput.click()" :class="['border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer', isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-500 hover:bg-gray-50']">
+                <div @click="$refs.fileInput.click()" :class="['border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer hover:border-blue-500 hover:bg-gray-50']">
                   <input type="file" ref="fileInput" class="hidden" accept=".xlsx, .xls" @change="handleFileSelect">
                   <i v-if="!excelFile" class="fa-solid fa-file-excel text-4xl text-green-500 mb-3"></i>
                   <i v-else class="fa-solid fa-file-circle-check text-4xl text-green-600 mb-3"></i>
                   <p class="text-gray-700 font-medium">{{ excelFile ? excelFile.name : 'Klik untuk Upload Excel (.xlsx)' }}</p>
-                  <p class="text-xs text-gray-500 mt-1">
-                    Format: date, shopName, itemName, qty <br>
-                    <span class="text-gray-400">(Atau: code, date, shopName, itemName, qty)</span>
-                  </p>
+                  <p class="text-xs text-gray-500 mt-1">Format: date, shopName, itemName, qty (atau code, date, shopName, itemName, qty)</p>
                 </div>
                 
-                <!-- Preview -->
                 <div v-if="parsedExcelData.length > 0" class="text-xs border rounded-lg overflow-hidden">
                   <div class="bg-green-50 p-2 border-b font-bold text-green-800">Preview ({{ parsedExcelData.length }} baris):</div>
                   <div class="max-h-32 overflow-y-auto">
@@ -172,7 +198,7 @@
       </Transition>
     </Teleport>
 
-    <!-- MODAL 2: RIWAYAT TRANSAKSI (Z-INDEX 100) -->
+    <!-- MODAL 2: RIWAYAT TRANSAKSI -->
     <Teleport to="#modal-portal">
       <Transition name="modal">
         <div v-if="isHistoryOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -218,7 +244,7 @@
       </Transition>
     </Teleport>
 
-    <!-- MODAL 3: EDIT HISTORY (Z-INDEX 110) -->
+    <!-- MODAL 3: EDIT HISTORY -->
     <Teleport to="#modal-portal">
       <Transition name="modal">
         <div v-if="isEditHistoryOpen" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
@@ -247,7 +273,7 @@
       </Transition>
     </Teleport>
 
-    <!-- MODAL PROGRESS UPLOAD (Z-INDEX 200) -->
+    <!-- MODAL PROGRESS UPLOAD -->
     <Teleport to="#modal-portal">
       <Transition name="modal">
         <div v-if="isUploading" class="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -258,14 +284,9 @@
               <div class="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
             </div>
             <h3 class="text-xl font-bold text-gray-800 mb-2">Sedang Mengupload...</h3>
-            <p class="text-sm text-gray-500 mb-6 font-medium">
-              Jangan refresh halaman agar data tidak hilang
-            </p>
+            <p class="text-sm text-gray-500 mb-6 font-medium">Jangan refresh halaman agar data tidak hilang</p>
             <div class="w-full bg-gray-200 rounded-full h-4 mb-2 overflow-hidden relative">
-              <div 
-                class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-300 ease-out" 
-                :style="{ width: uploadProgress + '%' }"
-              ></div>
+              <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-4 rounded-full transition-all duration-300 ease-out" :style="{ width: uploadProgress + '%' }"></div>
             </div>
             <div class="flex justify-between items-center text-sm font-bold text-gray-700">
               <span>Proses: {{ uploadCount }} dari {{ uploadTotal }} Data</span>
@@ -280,7 +301,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import InventoryPresenter from './InventoryPresenter';
 import { showToast } from '../../utils/toastify';
 import ExcelJS from 'exceljs';
@@ -291,6 +312,12 @@ const isLoading = ref(false);
 const searchQuery = ref('');
 const sortKey = ref('createdAt'); 
 const sortAsc = ref(false);
+
+// Pagination State
+const currentPage = ref(1);
+const itemsPerPage = ref(10);
+const customLimitInput = ref(null);
+
 const isUploadModalOpen = ref(false); 
 const transactionType = ref('in'); 
 const uploadTab = ref('single');
@@ -301,7 +328,6 @@ const uploadForm = reactive({
   qty: 0 
 });
 const excelFile = ref(null);
-const isDragging = ref(false); 
 const parsedExcelData = ref([]);
 
 // --- STATE PROGRESS UPLOAD ---
@@ -344,86 +370,98 @@ const presenter = new InventoryPresenter({
 });
 
 // --- HELPER ---
-const formatDateDisplay = (dateString) => {
-  if (!dateString) return '';
-  if (dateString.includes('-')) { 
-    const [y,m,d] = dateString.split('-'); 
-    return `${d}/${m}/${y}`; 
-  }
-  return dateString;
-};
-
 const formatDateIndo = (dateString) => {
   if (!dateString) return '-';
-  
-  // Jika format adalah ISO String (mengandung 'T'), new Date() bisa langsung parse
-  // Jika format YYYY-MM-DD, new Date() juga bisa parse (treat as UTC usually)
   const date = new Date(dateString);
-
-  // Cek apakah date valid
-  if (isNaN(date.getTime())) {
-    // Fallback jika gagal parsing (mungkin string manual yang salah)
-    // Jika ingin format DD-MM-YYYY mentah, bisa kembalikan dateString
-    return dateString; 
-  }
-
-  // Opsi format: 10 April 2025
-  const options = { day: 'numeric', month: 'long', year: 'numeric' };
-  
-  // toLocaleDateString akan otomatis menyesuaikan timezone browser,
-  // tapi untuk tanggal saja biasanya aman.
-  return date.toLocaleDateString('id-ID', options);
+  if (isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 // --- SORTING ---
 const sortBy = (k) => { 
-  sortKey.value === k ? sortAsc.value = !sortAsc.value : (sortKey.value=k, sortAsc.value=true); 
+  if (sortKey.value === k) sortAsc.value = !sortAsc.value;
+  else { sortKey.value = k; sortAsc.value = true; }
+  currentPage.value = 1;
 };
 
+// --- COMPUTED: FILTERING & SORTING ---
 const filteredItems = computed(() => {
   let t = [...items.value];
   if(searchQuery.value) { 
     const l = searchQuery.value.toLowerCase(); 
     t = t.filter(i => 
-      i.name.toLowerCase().includes(l) || 
-      i.code.toLowerCase().includes(l) || 
+      (i.name && i.name.toLowerCase().includes(l)) || 
+      (i.code && i.code.toLowerCase().includes(l)) || 
       (i.shopName && i.shopName.toLowerCase().includes(l))
     ); 
   }
   t.sort((a,b) => { 
     let A=a[sortKey.value], B=b[sortKey.value]; 
-    if (typeof A==='string') A=A.toLowerCase(); 
-    if (typeof B==='string') B=B.toLowerCase(); 
-    if (A<B) return sortAsc.value?-1:1; 
-    if (A>B) return sortAsc.value?1:-1; 
+    
+    if (sortKey.value === 'createdAt') {
+       if (A?.seconds) A = A.seconds * 1000;
+       if (B?.seconds) B = B.seconds * 1000;
+       A = new Date(A).getTime();
+       B = new Date(B).getTime();
+    } else if (typeof A === 'number' || typeof B === 'number') {
+       A = Number(A) || 0; B = Number(B) || 0;
+    } else {
+       if (typeof A==='string') A=A.toLowerCase(); 
+       if (typeof B==='string') B=B.toLowerCase(); 
+    }
+
+    if (A < B) return sortAsc.value ? -1 : 1; 
+    if (A > B) return sortAsc.value ? 1 : -1; 
     return 0; 
   });
   return t;
 });
 
+// --- COMPUTED: TOTAL STOK (UNTUK TOOLTIP) ---
+const totalStock = computed(() => {
+  return filteredItems.value.reduce((sum, item) => sum + (item.stock || 0), 0);
+});
+
+// --- COMPUTED: PAGINATION ---
+const totalPages = computed(() => Math.ceil(filteredItems.value.length / itemsPerPage.value) || 1);
+const paginationInfo = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value + 1;
+  const end = Math.min(currentPage.value * itemsPerPage.value, filteredItems.value.length);
+  return { start, end };
+});
+const paginatedItems = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredItems.value.slice(start, end);
+});
+
+watch(itemsPerPage, () => { currentPage.value = 1; });
+
+const applyCustomLimit = () => {
+  if (customLimitInput.value && customLimitInput.value > 0) {
+    itemsPerPage.value = customLimitInput.value;
+    currentPage.value = 1;
+  }
+};
+
 // --- EXPORT EXCEL ---
 const exportToExcel = async () => {
   if (filteredItems.value.length === 0) return showToast('Data kosong', 'error');
 
-  const loadingToast = showToast('Sedang menyiapkan data laporan...', 'info');
+  showToast('Sedang menyiapkan data laporan...', 'info');
   
   let fullReport = [];
   try {
     fullReport = await presenter.getInventoryReport();
   } catch (e) {
-    return; // Error sudah ditangani di presenter/toast
+    return; 
   }
 
-  // Buat Map untuk lookup data "Total Masuk/Keluar"
   const reportMap = new Map();
   fullReport.forEach(r => {
-    reportMap.set(r.code, {
-      totalIn: r.totalIn || 0,
-      totalOut: r.totalOut || 0
-    });
+    reportMap.set(r.code, { totalIn: r.totalIn || 0, totalOut: r.totalOut || 0 });
   });
 
-  // Setup Workbook & Styles
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Laporan Stok');
 
@@ -456,16 +494,13 @@ const exportToExcel = async () => {
 
   const today = new Date();
 
-  // Loop Data yang Ter-Filter di Layar
   filteredItems.value.forEach((item) => {
-    // Logic Tanggal
     let dateStr = today.toISOString().split('T')[0];
     if (item.createdAt) {
       if (item.createdAt.seconds) dateStr = new Date(item.createdAt.seconds * 1000).toISOString().split('T')[0];
       else if (typeof item.createdAt === 'string') dateStr = item.createdAt.split('T')[0];
     }
 
-    // Ambil Total dari Map
     const totals = reportMap.get(item.code) || { totalIn: 0, totalOut: 0 };
 
     const row = sheet.addRow({
@@ -480,15 +515,10 @@ const exportToExcel = async () => {
 
     row.eachCell((cell) => {
       cell.style = borderStyle;
-      
-      // Format Angka (Kolom E, F, G)
-      if ([5, 6, 7].includes(cell.column)) {
-        cell.numFmt = '#,##0';
-      }
+      if ([5, 6, 7].includes(cell.column)) cell.numFmt = '#,##0';
     });
   });
 
-  // Write File
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = window.URL.createObjectURL(blob);
@@ -509,9 +539,9 @@ const openUploadModal = (type) => {
   uploadForm.shopName=''; 
   uploadForm.itemName=''; 
   uploadForm.qty=0; 
-  excelFile.value = null; // Reset file
-  parsedExcelData.value = []; // Reset data
-  uploadTab.value = 'single'; // Reset tab
+  excelFile.value = null; 
+  parsedExcelData.value = []; 
+  uploadTab.value = 'single'; 
   isUploadModalOpen.value = true;
 };
 
@@ -525,13 +555,7 @@ const handleSingleUpload = () => {
   closeUploadModal(); 
 };
 
-// --- EXCEL PROCESSING DENGAN EXCELJS ---
-const handleFileDrop = (e) => { 
-  isDragging.value = false; 
-  const files = e.dataTransfer.files; 
-  if (files.length) processFile(files[0]); 
-};
-
+// --- EXCEL PROCESSING ---
 const handleFileSelect = (e) => { 
   const files = e.target.files; 
   if (files.length) processFile(files[0]); 
@@ -540,71 +564,29 @@ const handleFileSelect = (e) => {
 const processFile = async (file) => {
   const validExts = [".xlsx", ".xls"];
   const fileExt = file.name.substring(file.name.lastIndexOf('.'));
-  if (!validExts.includes(fileExt)) {
-    return showToast('Format harus Excel (.xlsx)', 'error');
-  }
+  if (!validExts.includes(fileExt)) return showToast('Format harus Excel (.xlsx)', 'error');
   
   excelFile.value = file;
   
   try {
-    // Baca file dengan ExcelJS
     const workbook = new ExcelJS.Workbook();
     const arrayBuffer = await file.arrayBuffer();
     await workbook.xlsx.load(arrayBuffer);
-    
-    // Ambil worksheet pertama
     const worksheet = workbook.getWorksheet(1);
-    
-    // Konversi ke array
     const data = [];
+    
     worksheet.eachRow((row, rowNumber) => {
-      // Skip header row (baris pertama)
       if (rowNumber === 1) return;
-      
-      // Ambil nilai dari setiap sel
       const values = row.values;
-      
-      // Hapus elemen pertama (indeks 0) karena ExcelJS menambahkan elemen kosong di awal
       values.shift();
-      
-      // Tambahkan ke data array
       data.push(values);
     });
     
-    // Proses data
     parsedExcelData.value = data.map(row => {
-      // Cek apakah format dengan kode atau tanpa kode
-      // Format dengan kode: [code, date, shopName, itemName, qty]
-      // Format tanpa kode: [date, shopName, itemName, qty]
-      
-      let date, shopName, itemName, qty;
-      
-      // Cek apakah kolom pertama adalah tanggal (format YYYY-MM-DD)
       const firstCol = row[0];
-      const isDateFormat = firstCol && typeof firstCol === 'string' && 
-                          firstCol.includes('-') && 
-                          !isNaN(firstCol.split('-')[0]);
-      
-      if (isDateFormat) {
-        // Format tanpa kode: [date, shopName, itemName, qty]
-        date = row[0];
-        shopName = row[1];
-        itemName = row[2];
-        qty = row[3];
-      } else {
-        // Format dengan kode: [code, date, shopName, itemName, qty]
-        date = row[1];
-        shopName = row[2];
-        itemName = row[3];
-        qty = row[4];
-      }
-      
-      return {
-        date: date,
-        shopName: shopName,
-        itemName: itemName,
-        qty: parseInt(qty) || 0
-      };
+      const isDateFormat = firstCol && typeof firstCol === 'string' && firstCol.includes('-') && !isNaN(firstCol.split('-')[0]);
+      if (isDateFormat) return { date: row[0], shopName: row[1], itemName: row[2], qty: parseInt(row[3]) || 0 };
+      else return { date: row[1], shopName: row[2], itemName: row[3], qty: parseInt(row[4]) || 0 };
     });
     
   } catch (error) {
@@ -660,4 +642,6 @@ onMounted(() => {
 <style scoped>
 .modal-enter-active, .modal-leave-active { transition: opacity 0.3s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance:textfield; }
 </style>

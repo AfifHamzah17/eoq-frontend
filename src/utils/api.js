@@ -1,3 +1,4 @@
+// src/utils/api.js
 import axios from 'axios';
 import Storage from './storage';
 
@@ -17,14 +18,21 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor Response
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    
+
     if (error.response && error.response.status === 401) {
+      
+      if (error.config.url.includes('/auth/login')) {
+        return Promise.reject(error);
+      }
+
       Storage.clearUser();
-      window.location.href = '/auth'; 
+      window.location.href = '/'; 
     }
+    
     return Promise.reject(error);
   }
 );

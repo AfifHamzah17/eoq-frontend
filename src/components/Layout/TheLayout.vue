@@ -4,7 +4,8 @@
     <!-- 1. SIDEBAR (Kiri) -->
     <div class="w-64 bg-slate-900 text-slate-300 flex flex-col relative z-20 h-full border-r border-slate-800">
       <div class="h-16 flex items-center justify-center border-b border-slate-800 bg-slate-950">
-        <span class="font-bold text-xl text-white tracking-wide"><i class="fa-solid fa-boxes-stacked mr-2"></i>EOQ SYS</span>
+        <img class="w-10 h-10 mr-2" src="/pajri.png" alt="Logo EOQ System">
+        <span class="font-bold text-xl text-white tracking-wide">HSB Group</span>
       </div>
       
       <!-- Navigation -->
