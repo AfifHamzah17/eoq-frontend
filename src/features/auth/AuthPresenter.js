@@ -8,16 +8,8 @@ export default class AuthPresenter {
   }
 
   async login(identity, password) {
-    console.log('Presenter: Mencoba login dengan:', identity);
-
     try {
-      const response = await api.post('/auth/login', {
-        identity,
-        password
-      });
-
-      console.log('Presenter: Response berhasil diterima', response.data);
-
+      const response = await api.post('/auth/login', { identity, password });
       const { token, user } = response.data.data;
 
       Storage.setToken(token);
@@ -26,27 +18,16 @@ export default class AuthPresenter {
       if (this.view.onLoginSuccess) {
         this.view.onLoginSuccess(user);
       }
-
     } catch (error) {
-      console.error('Presenter: LOGIN GAGAL (Error Object)', error);
-      
       let message = 'Login gagal. Silakan coba lagi.';
       
-      // Logic extraction message yang lebih detail
       if (error.response) {
-        // Server merespon dengan status error (4xx, 5xx)
-        console.log('Presenter: Error Response Data', error.response.data);
-        message = error.response.data.message || error.response.data.error || `Error Status: ${error.response.status}`;
+        message = error.response.data.message || `Error Status: ${error.response.status}`;
       } else if (error.request) {
-        // Request dibuat tapi tidak ada response (Server mati / CORS)
-        console.log('Presenter: Error Request (No Response)', error.request);
-        message = 'Tidak dapat terhubung ke server. Cek koneksi atau status server.';
+        message = 'Tidak dapat terhubung ke server. Periksa koneksi Anda.';
       } else {
-        // Error setup request
         message = error.message;
       }
-
-      console.log('Presenter: Pesan error final yang dikirim ke View:', message);
 
       if (this.view.onLoginError) {
         this.view.onLoginError(message);

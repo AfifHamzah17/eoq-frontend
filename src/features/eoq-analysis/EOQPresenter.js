@@ -6,16 +6,28 @@ export default class EOQPresenter {
     this.view = view;
   }
 
-  async fetchGlobalData() {
+  // GANTI: Fetch daftar cabang
+  async fetchCabangs() {
     try {
-      const response = await api.get('/eoq/parameters');
-      const data = response.data.data;
+      const response = await api.get('/eoq/cabangs');
+      this.view.onCabangsLoaded(response.data.data);
+    } catch (error) {
+      console.error(error);
+      this.view.showError("Gagal memuat daftar cabang.");
+    }
+  }
 
-      const S = data.avgShippingCost;
+  // GANTI: Terima parameter namaCabang
+  async fetchGlobalData(namaCabang) {
+    try {
+      const response = await api.get('/eoq/parameters', {
+        params: { namaCabang }
+      });
+      const data = response.data.data;
 
       this.view.onDataLoaded({
         totalStock: data.totalStock,
-        avgShippingCost: S
+        avgShippingCost: data.avgShippingCost
       });
 
     } catch (error) {
@@ -24,24 +36,21 @@ export default class EOQPresenter {
     }
   }
 
+  // FUNGSI INI TIDAK BERUBAH
   calculate(d, s, h) {
     if (!d || !s || !h || d <= 0 || s <= 0 || h <= 0) {
       this.view.showError("Parameter tidak valid untuk perhitungan.");
       return;
     }
 
-    // Rumus EOQ
     const q = Math.round(Math.sqrt((2 * d * s) / h));
     const orderingCost = (d / q) * s;
     const holdingCost = (q / 2) * h;
     const totalCost = orderingCost + holdingCost;
     const frequency = Math.round(d / q);
 
-    // --- TAMBAHAN: Perhitungan Interval Hari (T) ---
-    // Asumsi 1 tahun = 360 hari kerja
     const workingDays = 360; 
-    const intervalDays = (workingDays / frequency).toFixed(1); // Dibulatkan 1 desimal
-    // -----------------------------------------------
+    const intervalDays = (workingDays / frequency).toFixed(1); 
 
     this.view.onCalculationReady({
       q, 
@@ -49,7 +58,7 @@ export default class EOQPresenter {
       hc: holdingCost, 
       tc: totalCost, 
       freq: frequency,
-      intervalDays: intervalDays // Kirim data hari
+      intervalDays: intervalDays 
     });
   }
 }

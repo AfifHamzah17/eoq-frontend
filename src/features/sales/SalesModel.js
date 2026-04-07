@@ -1,3 +1,4 @@
+//src/features/sales/SalesModel.js
 import api from '../../utils/api';
 
 export default class SalesModel {

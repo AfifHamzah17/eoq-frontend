@@ -1,3 +1,4 @@
+<!-- src/components/Layout/TheSidebar.vue -->
 <template>
   <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col transition-all duration-300">
     <div class="h-16 flex items-center justify-center border-b border-slate-800 bg-slate-950">

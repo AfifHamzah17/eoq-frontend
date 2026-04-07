@@ -1,3 +1,4 @@
+<!-- src/App.vue -->
 <template>
   <div id="app" class="text-gray-800 font-sans">
     <!-- Login View -->
@@ -31,6 +32,9 @@
 
         <!-- Shipping -->
         <ShippingView v-else-if="currentPage === 'shipping'" />
+
+        <!-- User Management -->
+        <UserManagementView v-else-if="currentPage === 'users'" />
 
         <!-- SALES -->
         <SalesView v-else-if="currentPage === 'sales'" />
@@ -67,6 +71,7 @@ import PlaceholderView from './features/others/PlaceholderView.vue';
 import ProfileView from './features/profile/ProfileView.vue'; 
 import TheLayout from './components/Layout/TheLayout.vue';
 import Storage from './utils/storage';
+import UserManagementView from './features/admin/UserManagementView.vue';
 
 const currentUser = ref(null);
 // Ambil halaman terakhir dari localStorage, default 'dashboard' jika tidak ada

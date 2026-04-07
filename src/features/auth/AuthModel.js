@@ -1,0 +1,1 @@
+export const STORE_LIST = ['Serba Bintang', 'Serba HSBPYB', 'Serba Istana', 'Serba PSP2', 'Serba PSP3', 'Serba HSBSBH'];

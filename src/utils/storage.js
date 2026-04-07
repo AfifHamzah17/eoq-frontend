@@ -1,3 +1,4 @@
+// src/utils/storage.js
 const STORAGE_KEYS = {
   ITEMS: 'eoq_items',
   TRANSACTIONS: 'eoq_transactions',
@@ -11,21 +12,31 @@ const DEFAULT_ITEMS = [
   { id: 3, code: 'BRG-003', name: 'Oli Mesin Drum', d: 1200, s: 200000, h: 50000, stock: 50 }
 ];
 
-// PERBAIKAN: Ubah ke export default
-export default { // <--- Tambahkan 'default'
+export default {
   getItems: () => JSON.parse(localStorage.getItem(STORAGE_KEYS.ITEMS)) || DEFAULT_ITEMS,
   saveItems: (items) => localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items)),
-  
+
   getTransactions: () => JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) || [],
   saveTransactions: (trx) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(trx)),
-  
-  getUser: () => JSON.parse(localStorage.getItem(STORAGE_KEYS.USER)),
+
+  getToken: () => localStorage.getItem(STORAGE_KEYS.TOKEN),
+  setToken: (token) => localStorage.setItem(STORAGE_KEYS.TOKEN, token),
+
+  getUser: () => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER));
+    } catch {
+      return null;
+    }
+  },
   setUser: (user) => localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user)),
+
   clearUser: () => {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
   },
-  
-  getToken: () => localStorage.getItem(STORAGE_KEYS.TOKEN),
-  setToken: (token) => localStorage.setItem(STORAGE_KEYS.TOKEN, token)
+
+  clearAll: () => {
+    Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+  }
 };

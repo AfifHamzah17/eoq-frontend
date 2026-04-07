@@ -1,3 +1,4 @@
+//src/features/shipping/index.js
 import ShippingView from './ShippingView';
 import ShippingPresenter from './ShippingPresenter';
 import ShippingModel from './ShippingModel.js';
