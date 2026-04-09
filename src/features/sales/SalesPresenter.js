@@ -39,4 +39,17 @@ export default class SalesPresenter {
       this.loadSales();
     } catch (error) { this.view.showUploadProgress(false); this.view.showError('Terjadi kesalahan sistem saat upload.'); }
   }
+
+    async bulkDelete(ids) {
+    try { 
+      this.view.showLoading(true); 
+      await api.post(`${this.apiUrl}/bulk-delete`, { ids }); 
+      this.view.onDeleteSuccess(`Berhasil menghapus ${ids.length} data.`); 
+      this.loadSales(); 
+    } catch (error) { 
+      this.view.showError(error.response?.data?.message || 'Gagal menghapus data massal.'); 
+    } finally { 
+      this.view.showLoading(false); 
+    }
+  }
 }
