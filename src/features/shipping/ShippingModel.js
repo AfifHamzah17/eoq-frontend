@@ -4,4 +4,5 @@ export default class ShippingModel {
     // Placeholder
     return [];
   }
+    static async bulkDelete(ids) { const r = await api.post('/shipping/bulk-delete', { ids }); return r.data; }
 }

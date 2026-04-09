@@ -7,4 +7,5 @@ export default class SalesModel {
   static async update(id, data) { const r = await api.put(`/sales/${id}`, data); return r.data; }
   static async delete(id) { const r = await api.delete(`/sales/${id}`); return r.data; }
   static async uploadCsv(arr) { const r = await api.post('/sales/upload', arr); return r.data; }
+  static async bulkDelete(ids) { const r = await api.post('/sales/bulk-delete', { ids }); return r.data; }
 }
