@@ -1,3 +1,4 @@
+// src/features/inventory/index.js
 import InventoryView from './InventoryView.vue';
 import InventoryPresenter from './InventoryPresenter.js';
 import InventoryModel from './InventoryModel.js';
