@@ -3,7 +3,7 @@ import axios from 'axios';
 import Storage from './storage';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3000/api' 
+  baseURL: 'https://eoq-backend-387636610895.asia-southeast2.run.app/api' 
 });
 
 // Interceptor Request

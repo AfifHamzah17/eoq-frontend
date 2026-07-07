@@ -346,7 +346,7 @@ const handleRegister = async () => {
 // ==================== CHECK BACKEND ====================
 onMounted(async () => {
   try {
-    await axios.get('http://localhost:3000/');
+    await axios.get('https://eoq-backend-387636610895.asia-southeast2.run.app/');
     backendStatus.value = true;
   } catch (e) {
     backendStatus.value = false;
