@@ -83,7 +83,7 @@
 
           <div class="flex items-center gap-2 mb-2 text-sm text-gray-600 bg-blue-50 p-2 rounded">
             <i class="fa-solid fa-database text-blue-600"></i>
-            <span>Engine: Dimas Wahyudi</span>
+            <span>Engine: Khairul Fajri</span>
           </div>
 
           <div class="pt-4 border-t border-gray-100">
